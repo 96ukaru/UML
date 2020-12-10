@@ -1,0 +1,101 @@
+@startuml "SaveMoneyAppClass"
+
+package "com.example.savemoneyapp.additem" #AAFFAA {
+  AddItemActivity --> AddItemFragment
+  AddItemFragment o-- AddItemViewModel
+  AddItemFragment ..|> DatePickerDialogListener
+  AddItemFragment --> DatePickerDialogFragment
+}
+
+ViewModelFactory <-- AddItemFragment
+
+package "com.example.savemoneyapp.data" #FFAAAA {
+    ItemDao <-- AppLocalDataBase
+    ItemDao o-- AddItemViewModel
+    Item <-- AddItemViewModel
+    AppLocalDataBase <-- AddItemFragment
+}
+
+abstract class AppLocalDataBase {
+    - {static}singleton: AppLocalDataBase?
+    + {abstract}itemDao()
+    + {static}getInstance()
+    - {static}buildDatabase()
+}
+
+class AddItemActivity {
+    + onCreate()
+    + onTouchEvent()
+}
+
+class AddItemFragment {
+    + {static}newInstance():AddItemFragment
+    - viewModel: AddItemViewModel
+    - binding: FragmentAdditemBinding
+    + onCreateView()
+    + onActivityCreated()
+    - setAttributes()
+    - callAddItemData()
+    - onClickCategoryButtons()
+    - changeButtonsStatus()
+    - setDropdownItems()
+    - hideInputForm()
+    - selectDateFocusChangeListener()
+    - showDatePickerDialogFragment()
+    + onDateSet()
+}
+
+class AddItemViewModel {
+    - dao: ItemDao
+    + calendar: Calendar
+    + expendTypesArray: Array<String>
+    + incomeTypesArray: Array<String>
+    + costString: ObservableField<String>
+    + typeString: ObservableField<String>
+    + dateString: ObservableField<String>
+    + memoString: ObservableField<String>
+    + itemCategory: Int
+    - currentItemMap: MutableMap<Int, String>
+    + updateDateString()
+    + updateTypeString()
+    + updateItemCategory()
+    + updateCurrentItemMap()
+    + addItemData()
+}
+
+interface  DatePickerDialogListener {
+    + onDateSet()
+}
+
+class DatePickerDialogFragment {
+    - {static}ARG_YEAR: String
+    - {static}ARG_MONTH: String
+    - {static}ARG_DAY_OF_MONTH: String
+    - listener: DatePickerDialogListener
+    + {static}newInstance()
+    + onAttach()
+    + onCreateDialog()
+    + onDateSet()
+}
+
+interface ItemDao {
+    + loadAllItems()
+    + insertItem()
+}
+
+class Item {
+    + cost: Int
+    + itemCategory: Int
+    + type:String
+    + date: String
+    + memo: String
+    + {static}EXPEND_ITEM: Int
+    + {static}INCOME_ITEM: Int
+    + id: Long
+}
+
+class ViewModelFactory {
+    + create()
+}
+
+@endum
