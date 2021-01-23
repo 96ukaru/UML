@@ -1,0 +1,47 @@
+@startuml sequence
+
+participant ViewItemsFragment
+participant ViewItemsViewModel
+participant ItemListUtil
+database DataBase
+participant DataBase
+
+
+ViewItemsFragment -> ViewItemsViewModel: itemList更新
+par
+ViewItemsViewModel -> DataBase: itemList取得
+DataBase --> ViewItemsViewModel: itemList返却
+note left
+ViewItemsViewModelは
+itemList(LiveData)を
+メンバに持つ
+end note
+end
+ViewItemsViewModel --> ViewItemsFragment: itemList更新通知
+
+par
+ViewItemsFragment -> ViewItemsViewModel: セクション区切りリスト取得
+ViewItemsFragment -> ViewItemsViewModel: 日にちごとに分割したリスト取得
+ViewItemsViewModel -> ItemListUtil: itemListからセクション区切りリスト作成
+ItemListUtil --> ViewItemsViewModel: セクション区切りリスト返却
+
+critical
+ViewItemsViewModel -> ItemListUtil: itemListから日にちごとに分割したリスト作成
+note right
+日にちごとに分割したリストは
+複数必要になるので、
+順番にアクセスさせないと
+返却されるリストの中身がおかしくなる
+end note
+ItemListUtil --> ViewItemsViewModel: 日にちごとに分割したリスト返却
+end
+
+ViewItemsViewModel --> ViewItemsFragment: セクション区切りリスト返却
+ViewItemsViewModel --> ViewItemsFragment: 日にちごとに分割したリスト返却
+
+end
+
+ViewItemsFragment -> ViewItemsFragment: カレンダー表示
+ViewItemsFragment -> ViewItemsFragment: サマリー表示
+ViewItemsFragment -> ViewItemsFragment: リスト表示
+@enduml

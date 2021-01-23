@@ -1,0 +1,265 @@
+@startuml "SaveMoneyAppClass"
+
+package "com.example.savemoneyapp.data" #FFAAAA {
+    ItemRepository --> Item
+    ItemRepository --> AppLocalDataBase :> create
+    AppLocalDataBase --> ItemDao
+    ItemRepository *-- ItemDao
+    ItemRepository *-- AppRemoteDataBaseClient
+}
+
+package "com.example.savemoneyapp.edititem" #FFFFAA {
+    EditItemActivity --> EditItemFragment
+    EditItemFragment *-- EditItemViewModel
+    EditItemViewModel o-- ItemRepository
+}
+
+package "com.example.savemoneyapp.util" #AAAAFF {
+  CalendarUtil --o EditItemViewModel
+  InputTextValidation <-- EditItemFragment
+}
+
+EditItemActivity <-- AddItemActivity
+ViewModelFactory <-- EditItemFragment: < create
+EditItemFragment ..|> DatePickerDialogListener
+EditItemFragment --> DatePickerDialogFragment: > use
+
+class AddItemActivity {
+    + onCreate()
+    + onTouchEvent()
+}
+
+class AddItemFragment {
+    + {static}newInstance():AddItemFragment
+    - viewModel: AddItemViewModel
+    - binding: FragmentAdditemBinding
+    + onCreateView()
+    + onActivityCreated()
+    - setAttributes()
+    - inputCostValidation()
+    - setDropdownItems()
+    - hideInputForm()
+    - selectDateFocusChangeListener()
+    - showDatePickerDialogFragment()
+    + onDateSet()
+    + onCancelled()
+}
+
+class AddItemViewModel {
+    + repository: ItemRepository
+    - calendarUtil: CalendarUtil
+    - calendar: Calendar
+    - expendTypesArray: Array<String>
+    - incomeTypesArray: Array<String>
+    + expenseButtonEnabled: ObservableField<Boolean>
+    + incomeButtonEnabled: ObservableField<Boolean>
+    + costString: ObservableField<String>
+    + typeString: ObservableField<String>
+    + dateString: ObservableField<String>
+    + memoString: ObservableField<String>
+    + itemCategory: MutableLiveData<Int>
+    + itemInsertResult: MutableLiveData<Int>
+    - currentItemMap: MutableMap<Int, String>
+    + compositeDisposable: CompositeDisposable
+    + onCleared()
+    + updateDateString()
+    + updateTypeString()
+    + updateItemCategory()
+    - updateCurrentItemMap()
+    + addItemData()
+    + onClickCategoryButton()
+}
+
+interface  DatePickerDialogListener {
+    + onDateSet()
+    + onCancelled()
+}
+
+class DatePickerDialogFragment {
+    - {static}ARG_YEAR: String
+    - {static}ARG_MONTH: String
+    - {static}ARG_DAY_OF_MONTH: String
+    - listener: DatePickerDialogListener
+    + {static}newInstance()
+    + onAttach()
+    + onCreateDialog()
+    + onCancel()
+    + onDateSet()
+}
+
+class ViewModelFactory {
+    - context: Application
+    - item: Item?
+    + create()
+}
+
+interface ItemDao {
+    + loadAllItems()
+    + insertItem()
+    + deleteItem()
+    + updateItem()
+}
+
+abstract class AppLocalDataBase {
+    - {static}singleton: AppLocalDataBase?
+    + {abstract}itemDao()
+    + {static}getInstance()
+    - {static}buildDatabase()
+}
+
+class Item {
+    + cost: Int
+    + itemCategory: Int
+    + type:String
+    + date: String
+    + memo: String
+    + {static}EXPEND_ITEM: Int
+    + {static}INCOME_ITEM: Int
+    + id: Long
+}
+
+class ItemRepository {
+    - itemDao:ItemDao
+    - remoteDao:AppRemoteDataBaseClient
+    + loadAllItems()
+    + insertItem()
+    + deleteItem()
+    + updateItem()
+}
+
+class AppRemoteDataBaseClient {
+    - url: String
+    - jsonForm: MediaType
+    - client: OkHttpClient
+    - createSingle()
+    - createCompletable()
+    + getServerData()
+    + postServerData()
+    + putServerData()
+    + deleteServerData()
+    - item2Json()
+    - response2ItemList()
+}
+
+abstract class InputTextValidation {
+    - checkedText:String
+    + {abstract}textValidator()
+    - afterTextChanged()
+    - beforeTextChanged()
+    - onTextChanged()
+}
+
+class CalendarUtil{
+    - calendarUtil: CalendarUtil
+    - mCalendar: Calendar
+    + {static}newInstance()
+    + setNextMonth()
+    + setLastMonth()
+    + getMax()
+    + getWeek()
+    + getFormat()
+    + getNextFormat()
+    + calendar2DateString()
+    + string2Calendar()
+}
+
+class ItemListUtil{
+    + {static}newInstance()
+    + sortItemList()
+    + itemList2SectionList()
+    + itemList2DividedList()
+    - calculateExpenseOfDay()
+    - calculateIncomeOfDay()
+    + calculateExpenseOfMonth()
+    + calculateIncomeOfMonth()
+    + calculateMonthSummary()
+}
+
+class CalendarCustomAdapter{
+    + getItemCount()
+    + getItemViewType()
+    + onCreateViewHolder()
+    + onBindViewHolder()
+}
+
+class ItemCustomAdapter{
+    + listener: OnItemClickListener
+    + getItemCount()
+    + getItemViewType()
+    + onCreateViewHolder()
+    + onBindViewHolder()
+    + setOnItemClickListener()
+}
+
+class ViewItemsFragment{
+    - calendarUtil: CalendarUtil
+    - compositeDisposable: CompositeDisposable
+    + {static}newInstance()
+    - viewModel: ViewItemsViewModel
+    - binding: FragmentViewitemsBinding
+    + onCreateView()
+    + onActivityCreated()
+    + onResume()
+    + onDestroy()
+    - displayCalendar()
+    - displaySummary()
+    - displayItemList()
+    - onClickNextMonthButton()
+    - onClickLastMonthButton()
+    - refresh()
+}
+
+class ViewItemsViewModel{
+    + repository: ItemRepository
+    - itemListUtil: ItemListUtil
+    + itemList: MutableLiveData<List<Item>>
+    + loadItems()
+    + updateItemList()
+    + convertItemListForView()
+    + getDividedItemList()
+    + getExpenseOfMonth()
+    + getIncomeOfMonth()
+    + getMonthSummary()
+}
+
+class EditItemActivity{
+    + onCreate()
+    + onTouchEvent()
+}
+
+class EditItemFragment{
+    - viewModel: EditItemViewModel
+    - binding: FragmentEdititemBinding
+    + {static}newInstance()
+    + onCreateView()
+    + onActivityCreated()
+    - setAttributes()
+    - inputCostValidation()
+    - setDropdownItems()
+    - hideInputForm()
+    - selectDateFocusChangeListener()
+    - showDatePickerDialogFragment()
+    + onDateSet()
+    + onCancelled()
+}
+
+class EditItemViewModel{
+    + repository: ItemRepository
+    - calendarUtil: CalendarUtil
+    - calendar: Calendar
+    - expendTypesArray: Array<String>
+    - incomeTypesArray: Array<String>
+    - itemCategory: Int
+    + completeItemUpdate: MutableLiveData<Boolean>
+    + costString: ObservableField<String>
+    + typeString: ObservableField<String>
+    + dateString: ObservableField<String>
+    + memoString: ObservableField<String>
+    + compositeDisposable: CompositeDisposable
+    + onCleared()
+    + updateDateString()
+    + onClickDeleteButton()
+    + onClickUpdateButton()
+}
+
+@endum
