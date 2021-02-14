@@ -1,0 +1,200 @@
+@startuml "ActiveObjectPattern"
+
+SaveMoneyAppServlet o--> ActiveObject: > call
+Proxy ..|> ActiveObject
+Servant ..|> ActiveObject
+Proxy o--> SchedulerThread: > invoke
+Proxy o--> Servant
+SchedulerThread o--> ActivationQueue: > puts/gets request
+SchedulerThread --> MethodRequest: > execute
+ActivationQueue o--> MethodRequest: > manages
+MethodRequest o--> Servant: > call
+Proxy --> ExecuteSQLRequest: > create
+ExecuteSQLRequest --|> MethodRequest
+Servant --> RealResult: > create
+Servant --> FutureResult: > set a realResult
+FutureResult o--> RealResult: > delegate
+RealResult --|> Result
+FutureResult --|> Result
+SaveMoneyAppServlet --> Result: > get result value
+SaveMoneyAppServlet --> ActiveObjectFactory: > use
+SaveMoneyAppServlet --> Item
+
+class SaveMoneyAppServlet {
+    + doGet()
+    + doPost()
+    + doPut()
+    + doDelete()
+}
+
+interface ActiveObject {
+    + executeSQL(int flag, Item, item, String[] queries):Result<String>
+}
+
+class ActiveObjectFactory {
+    - singleton:ActiveObject
+    + createActiveObject():ActiveObject
+}
+
+note left of ActiveObjectFactory
+ActiveObject(proxy)がインスタンス化されるタイミングで以下も生成
+Servant servant = new Servant();
+ActivationQueue queue = new ActivationQueue();
+SchedulerThread scheduler = new SchedulerThread(queue);
+Proxy proxy = new Proxy(scheduler, servant);
+scheduler.start();
+(一度のみインスタンス化するため、これらのインスタンスは全スレッドで共有される)
+
+createActiveObjectではproxyを返す
+end note
+
+class Proxy {
+    - scheduler:SchedulerThread
+    - servant:Servant
+    + proxy(scheduler, servant)
+    + executeSQL(int flag, Item item, String[] queries):Result<String>
+}
+
+note left of Proxy
+executeSQL()を具体化させる
+executeSQLの中では、以下を行う
+FutureResult<String> future = new FutureResult<String>();
+scheduler.invoke(new ExecuteSQLRequest(servant, future, flag, queries));
+return future;
+
+☆proxyクラスは処理の起動だけ行い、実行はscheculerに任せる
+☆future(FutureResult)、ExecuteSQLRequestインスタンスはスレッドごとに生成される
+end note
+
+class SchedulerThread {
+    - queue:ActivationQueue
+    + SchedulerThread(queue)
+    + invoke(request)
+    + run()
+}
+
+note left of SchedulerThread
+invoke()では以下を行う
+queue.putRequest(request);
+
+run()では以下を行う
+while(true) {
+    MethodRequest request = queue.takeRequest();
+    request.execute();
+}
+
+☆ActiveObjectFactoryが起動したタイミングで起動している
+end note
+
+class ActivationQueue {
+    - MAX_METHOD_REQUEST:int
+    - requestQueue:MethodRequest[]
+    - tail
+    - head
+    - count
+    + ActivationQueue()
+    + putRequest(request)
+    + takeRequest():MethodRequest
+}
+
+note left of ActivationQueue
+putRequest(request)では、
+countがMAX_METHOD_REQUEST以上なら
+wait()でスレッドを停止させる
+countがMAX_METHOD_REQUEST未満なら
+requestQueue配列にrequestを追加して、
+tailとcountを+1した後、notifyAll()で全ての停止スレッドを起こす
+
+takeRequest()では、
+countが0以下なら、wait()でスレッドを停止させる
+そうでなければ、requestQueue配列からrequestを先出しして、
+headを+1、countを-1したら、notifyAll()で全ての停止スレッドを起こす
+最後にrequestを呼び出し元に戻す
+
+☆putRequest(request)とtakeRequest()はsynchronized
+end note
+
+abstract class MethodRequest<T> {
+    # servant:Servant
+    # future:FutureResult<T>
+    # MethodRequest(servant, future)
+    + abstract execute()
+}
+
+class ExecuteSQLRequest {
+    - flag:int
+    - item:Item
+    - queries:String[]
+    + ExecuteSQLRequest(servant, future, flag, item, queries)
+    + execute()
+}
+
+note left of ExecuteSQLRequest
+execute()は具体化しているメソッドで、内部では以下を行う
+Result<String> result = servant.executeSQL(flag, item, queries);
+future.setResult(result);
+
+☆実際の処理はServantクラスにある
+☆戻り値は渡されてきたfuture(futureResult)インスタンスにセットする
+end note
+
+abstract class Result<T> {
+    abstract getReultValue():T
+}
+
+class FutureResult<T> {
+    - result:Result<T>
+    - ready:boolean
+    + setResult(result)
+    + getReultValue():T
+}
+
+note left of FutureResult
+setResult(result)では、
+渡されたresultを自身のresultにセットして、
+readyをtrueにした後、
+notifyAll()でこのインスタンス内で停止しているスレッドを起こす
+☆FutureResult<T>インスタンスは各スレッドごとに生成されるので
+停止するスレッドもひとつのみ
+
+getResultValue()では、
+もし、readyがfalseならスレッドを停止する
+そうでないなら、次を行う
+return result.getResultValue();
+
+☆setResult(result)とgetResultValue()はsyncronized←なぜ？
+end note
+
+class RealResult {
+    - resultValue:T
+    + RealResult(resultValue)
+    + getReultValue():T
+}
+
+class Servant {
+    + executeSQL(flag, item, queries):Result<T>
+}
+
+note left of Servant
+ここでやっと、DBに対して、flagに対応したSQL文を実行する
+select文だけはqueriesの文字列を利用する
+
+DBからの結果はRealResultインスタンスに突っ込んで、
+呼び出し元に戻す
+
+select文が成功すれば、json文字列を返して、
+insert文、update文、delete文が成功すれば、
+適当に'OK'のような文字列を返す
+失敗した場合はエラーメッセージを返すようにしておく
+end note
+
+class Item {
+    - id
+    - cost
+    - itemCategory
+    - type
+    - date
+    - memo
+}
+
+@endum
